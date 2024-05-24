@@ -4,6 +4,8 @@ const socketIo = require('socket.io');
 const path = require('path');
 const mongoose = require('mongoose');
 const User = require('./models/User');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
 
 const PORT = process.env.PORT || 3000;
 
@@ -17,6 +19,19 @@ app.use(express.static('public'));
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+app.use(session({
+    secret: 'secreto',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: 'mongodb://localhost:27017/tresraya',
+      collectionName: 'sessions'
+    }),
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 // 1 día
+    }
+  }));
 
 mongoose.connect('mongodb://localhost:27017/tresraya')
     .then(() => {
@@ -43,6 +58,7 @@ app.post("/login", async (req, res) => {
             return res.render('login', { error: 'Usuario o contraseña incorrecto' });
         }
 
+        req.session.userId = user._id;
         res.redirect('/juego');
     } catch (error) {
         console.error(error);
@@ -62,7 +78,7 @@ app.post('/register', async (req, res) => {
             password: req.body.password
         });
         await newUser.save();
-        res.render('login', { error: null });
+        res.redirect('/login');
     } catch (error) {
         console.log(error);
         res.render('register', { error: 'Error al guardar el usuario' });
